@@ -1,27 +1,56 @@
 apiVersion: postgres-operator.crunchydata.com/v1beta1
 kind: PostgresCluster
 metadata:
-  name: hippo
+  name: gbs-main
 spec:
   image: registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.2-1
   postgresVersion: 14
   instances:
     - name: instance1
+      replicas: 2
       dataVolumeClaimSpec:
         accessModes:
-        - "ReadWriteOnce"
+          - "ReadWriteOnce"
+        storageClassName: do-block-storage
         resources:
           requests:
-            storage: 1Gi
+            storage: 80Gi
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    postgres-operator.crunchydata.com/cluster: gbs-main
+                    postgres-operator.crunchydata.com/instance-set: instance1
   backups:
     pgbackrest:
       image: registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.38-0
+      global:
+        repo1-retention-full: "2"
+        repo2-retention-full-type: count
+        repo1-retention-differential: "30"
+        repo1-retention-differential-type: time
       repos:
-      - name: repo1
-        volume:
-          volumeClaimSpec:
-            accessModes:
-            - "ReadWriteOnce"
-            resources:
-              requests:
-                storage: 1Gi
+        - name: repo1
+          schedules:
+            full: "0 0 1 * *"
+            differential: "0 0 2-31 * *"
+          volume:
+            volumeClaimSpec:
+              accessModes:
+                - "ReadWriteOnce"
+              storageClassName: do-block-storage
+              resources:
+                requests:
+                  storage: 180Gi
+  proxy:
+    pgBouncer:
+      image: registry.developers.crunchydata.com/crunchydata/crunchy-pgbouncer:ubi8-1.16-2
+  users:
+    - name: admin
+      databases:
+        - project_data
+        - dashboard
