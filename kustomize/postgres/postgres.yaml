@@ -48,9 +48,18 @@ spec:
                   storage: 180Gi
   proxy:
     pgBouncer:
+      replicas: 3
       image: registry.developers.crunchydata.com/crunchydata/crunchy-pgbouncer:ubi8-1.16-2
+      config:
+        global:
+          max_client_conn: "200"
+          default_pool_size: "50"
   users:
     - name: admin
       databases:
         - project_data
         - dashboard
+  monitoring:
+    pgmonitor:
+      exporter:
+        image: registry.developers.crunchydata.com/crunchydata/crunchy-postgres-exporter:ubi8-5.1.0-0
